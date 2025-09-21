@@ -82,13 +82,14 @@ impl Thumbnailer {
     /// create thumbnail image.
     /// path: source file path.
     /// output: thumbnail image path.
-    pub fn create_thumbnail<P>(
+    pub fn create_thumbnail<P, T>(
         &'_ self,
         path: P,
-        output: P,
+        output: T,
     ) -> anyhow::Result<(), ThumbnailError<'_>>
     where
         P: AsRef<Path>,
+        T: AsRef<Path>,
     {
         let path = path.as_ref();
         let mime = tika_magic::from_filepath(path).context("Failed to find MIME type.")?;
