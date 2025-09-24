@@ -1,10 +1,13 @@
 mod thumbs;
+pub mod types;
 
 use std::{fs::File, path::Path, str::FromStr};
 
 use ::image::{DynamicImage, ImageFormat, codecs::jpeg::JpegEncoder};
 use anyhow::Context;
 use strum_macros::{AsRefStr, Display, EnumString};
+
+use crate::types::{IMAGE_MIME_TYPES, PDF_MIME_TYPES, VIDEO_MIME_TYPES};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ThumbnailError<'a> {
@@ -106,7 +109,7 @@ impl Thumbnailer {
             });
 
         #[cfg(feature = "image")]
-        if mime.starts_with("image/") {
+        if IMAGE_MIME_TYPES.contains(&mime) {
             use crate::thumbs::image;
 
             let img = image::create_thumbnail(path, self.width, self.height)?;
@@ -115,7 +118,7 @@ impl Thumbnailer {
         }
 
         #[cfg(feature = "pdf")]
-        if mime.eq("application/pdf") {
+        if PDF_MIME_TYPES.contains(&mime) {
             use crate::thumbs::pdf;
 
             let img = pdf::create_thumbnail(path, self.width, self.height)?;
@@ -124,7 +127,7 @@ impl Thumbnailer {
         }
 
         #[cfg(feature = "video")]
-        if mime.starts_with("video/") {
+        if VIDEO_MIME_TYPES.contains(&mime) {
             use crate::thumbs::video;
 
             let img = video::create_thumbnail(path, self.width, self.height)?;
