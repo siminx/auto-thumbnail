@@ -30,6 +30,43 @@ let result = thumbnailer.create_thumbnail("demo/1.webp", "demo/output1.webp");
 
 Set compression quality 1-100, default 90.
 
+### Supported Formats
+
+Image
+
+| extension | MIME type   |
+| --------- | ----------- |
+| jpg/jpeg  | image/jpeg  |
+| png       | image/png   |
+| gif       | image/gif   |
+| bmp       | image/bmp   |
+| tiff      | image/tiff  |
+| webp      | image/webp  |
+| tga       | image/x-tga |
+
+Video
+
+| extension | MIME type                     |
+| --------- | ----------------------------- |
+| mp4       | video/mp4                     |
+| webm      | video/webm                    |
+| vob       | video/mpeg                    |
+| mov       | video/quicktime               |
+| ogg       | video/theora                  |
+| flv       | video/x-flv                   |
+| wmv       | video/x-ms-asf                |
+| avi       | video/x-msvideo               |
+| mkv       | application/x-matroska        |
+| swf       | application/x-shockwave-flash |
+| 3gp       | video/3gpp                    |
+| 3g2       | video/3gpp2                   |
+
+PDF
+
+| extension | MIME type       |
+| --------- | --------------- |
+| pdf       | application/pdf |
+
 ### Output Formats
 
 - **WebP** (.webp) - Modern format, excellent compression

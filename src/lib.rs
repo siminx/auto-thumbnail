@@ -96,7 +96,7 @@ impl Thumbnailer {
     {
         let path = path.as_ref();
         let mime = tika_magic::from_filepath(path).context("Failed to find MIME type.")?;
-        // println!("mime: {}", mime);
+        // log::debug!("path: {:?}, mime: {}", path, mime);
 
         let encoding = output
             .as_ref()
