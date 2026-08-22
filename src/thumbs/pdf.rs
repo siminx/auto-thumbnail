@@ -11,7 +11,7 @@ where
     let document = pdfium.load_pdf_from_file(&path, None)?;
     let render_config = PdfRenderConfig::new();
     let first_page = document.pages().first()?;
-    let img = first_page.render_with_config(&render_config)?.as_image();
+    let img = first_page.render_with_config(&render_config)?.as_image()?;
 
     let resized = img.thumbnail(width, height);
 

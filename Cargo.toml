@@ -17,14 +17,13 @@ exclude = [
 anyhow = "1"
 image = "0.25"
 log = "0.4"
-ndarray = "0.16"
-oxipng = "9.1"
-pdfium-render = { version = "0.8", optional = true }
-strum = "0.27"
-strum_macros = "0.27"
+oxipng = "10.2"
+pdfium-render = { version = "0.9", optional = true }
+strum = "0.28"
+strum_macros = "0.28"
 thiserror = "2"
 tika-magic = "0.2"
-video-rs = { version = "0.10", features = ["ndarray"], optional = true }
+video-rs = { version = "0.11", features = ["ndarray"], optional = true }
 webp = "0.3"
 
 [features]
