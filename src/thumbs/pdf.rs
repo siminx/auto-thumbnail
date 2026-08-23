@@ -19,7 +19,10 @@ where
 }
 
 fn get_pdfium() -> Result<Pdfium, PdfiumError> {
-    let lib = Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
-        .or_else(|_| Pdfium::bind_to_system_library())?;
-    Ok(Pdfium::new(lib))
+    match Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./")) {
+        Ok(bindings) => Ok(Pdfium::new(bindings)),
+        // 进程内已成功绑定过 pdfium，复用全局单例，避免重复绑定报错
+        Err(PdfiumError::PdfiumLibraryBindingsAlreadyInitialized) => Ok(Pdfium::default()),
+        Err(_) => Pdfium::bind_to_system_library().map(Pdfium::new),
+    }
 }
