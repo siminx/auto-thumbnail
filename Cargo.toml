@@ -1,6 +1,6 @@
 [package]
 name = "auto-thumbnail"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 description = "Converts various file formats into thumbnail image."
@@ -16,6 +16,10 @@ exclude = [
 [dependencies]
 anyhow = "1"
 image = "0.25"
+image-extras = { version = "0.1", features = ["pcx", "icns", "dds"], default-features = false }
+jxl-oxide = { version = "0.12.6", default-features = false, features = ["image"] }
+openjpeg2-pure-rs = "0.1"
+ico = "0.5"
 log = "0.4"
 oxipng = "10.2"
 pdfium-render = { version = "0.9", optional = true }
@@ -24,11 +28,20 @@ strum_macros = "0.28"
 thiserror = "2"
 tika-magic = "0.2"
 video-rs = { version = "0.11", features = ["ndarray"], optional = true }
+ffmpeg-next = { version = "8.1", optional = true }
 webp = "0.3"
+resvg = { version = "0.48", optional = true }
+rawler = { version = "0.7", optional = true }
+lofty = { version = "0.25", optional = true }
+zip = { version = "8.6", optional = true }
 
 [features]
 default = [ "full" ]
 image = []
-video = [ "dep:video-rs" ]
+video = [ "dep:video-rs", "dep:ffmpeg-next" ]
 pdf = [ "dep:pdfium-render" ]
-full = [ "image", "video", "pdf" ]
+svg = [ "dep:resvg" ]
+raw = [ "dep:rawler" ]
+audio = [ "dep:lofty" ]
+office = [ "dep:zip" ]
+full = [ "image", "video", "pdf", "svg", "raw", "audio", "office" ]
