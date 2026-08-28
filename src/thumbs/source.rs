@@ -59,19 +59,20 @@ fn read_limited(path: &Path) -> Option<Vec<u8>> {
     Some(buf)
 }
 
-/// PSD/PSB/PSDT：列表档优先 IRB，避免 composite 全文件读与 PS 保存争用
-const PSD_COMPOSITE_MAX_BYTES: u64 = 20 * 1024 * 1024;
+/// composite 入口文件上限：整读进内存，峰值 ≈ 文件大小 + 256MB 解码上限，
+/// 乘以应用层 image 池约 2 路并发仍在可控范围；psd_composite 内部另有 500MB/12000px 护栏
+const PSD_COMPOSITE_MAX_BYTES: u64 = 200 * 1024 * 1024;
 
 /// PSD/PSB/PSDT：优先 composite image，失败再读 IRB 1036/1033 内嵌 JPEG。
+/// IRB 内嵌缩略图上限约 160px，仅作 composite 超限/失败/文件被 PS 锁定时的回退，
+/// 应用层会对 160px 结果异步 Shell 升级。
 fn extract_psd_preview(path: &Path, max_dim: u32) -> Option<DynamicImage> {
-    // Icon 档（512px）只用 IRB 局部读，不整文件读入
-    if max_dim <= 512 {
-        return extract_psd_irb_jpeg(path);
-    }
-    let size = std::fs::metadata(path).ok()?.len();
-    if size <= PSD_COMPOSITE_MAX_BYTES {
-        if let Some(img) = crate::thumbs::psd_composite::extract_psd_composite(path, max_dim) {
-            return Some(img);
+    // metadata 失败（文件被 PS 独占锁等）时不直接失败，仍尝试 IRB 局部读
+    if let Ok(size) = std::fs::metadata(path).map(|m| m.len()) {
+        if size <= PSD_COMPOSITE_MAX_BYTES {
+            if let Some(img) = crate::thumbs::psd_composite::extract_psd_composite(path, max_dim) {
+                return Some(img);
+            }
         }
     }
     extract_psd_irb_jpeg(path)
