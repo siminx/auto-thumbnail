@@ -159,6 +159,23 @@ Platform Shell/GDI and EMF rasterization are **not** included—callers (e.g. ch
 
 Some file types require additional setup and can be disabled via `features` if unneeded.
 
-Video thumbnails depend on `ffmpeg`. See [rust-ffmpeg](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)
+### Video (`feature = "video"`)
+
+`ffmpeg-next 8.1` 需要系统安装 **FFmpeg 8.x** 开发库：
+
+- 必需：`avcodec`、`avformat`、`swscale`、`avutil`
+- 推荐：`zlib`、`openjpeg`、`dav1d`（支持 JP2 解码和 AV1 视频）
+
+安装示例：
+
+Windows（vcpkg）：
+
+```powershell
+vcpkg install "ffmpeg[avcodec,avformat,swscale,avutil,core,dav1d,zlib,openjpeg]:x64-windows" --recurse
+```
+
+更多 FFmpeg 编译细节见 [rust-ffmpeg](https://github.com/zmwangx/rust-ffmpeg/wiki/Notes-on-building)。
+
+### PDF (`feature = "pdf"`)
 
 PDF thumbnails depend on `pdfium`. See [pdfium-render](https://github.com/ajrcarey/pdfium-render?#dynamic-linking)
