@@ -34,6 +34,7 @@ resvg = { version = "0.48", optional = true }
 rawler = { version = "0.7", optional = true }
 lofty = { version = "0.25", optional = true }
 zip = { version = "8.6", optional = true }
+ag-psd = { version = "0.2", optional = true }
 
 [features]
 default = [ "full" ]
@@ -44,4 +45,5 @@ svg = [ "dep:resvg" ]
 raw = [ "dep:rawler" ]
 audio = [ "dep:lofty" ]
 office = [ "dep:zip" ]
-full = [ "image", "video", "pdf", "svg", "raw", "audio", "office" ]
+source = [ "dep:zip", "dep:ag-psd" ]
+full = [ "image", "video", "pdf", "svg", "raw", "audio", "office", "source" ]

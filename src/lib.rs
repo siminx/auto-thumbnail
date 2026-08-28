@@ -91,6 +91,12 @@ pub fn decode_for_thumbnail(path: &Path, max_dim: u32) -> Result<DynamicImage, D
         return office::create_thumbnail(path, max_dim).ok_or(DecodeError::Unsupported);
     }
 
+    #[cfg(feature = "source")]
+    if crate::thumbs::source::is_source_ext(&ext) {
+        use crate::thumbs::source;
+        return source::create_thumbnail(path, max_dim).ok_or(DecodeError::Unsupported);
+    }
+
     decode_and_thumbnail(path, max_dim)
 }
 
@@ -188,6 +194,15 @@ impl Thumbnailer {
         if mime_resolve::is_office_mime(&mime) || mime_resolve::is_office_ext(&ext) {
             use crate::thumbs::office;
             let img = office::create_thumbnail(path, max_dim)
+                .ok_or_else(|| ThumbnailError::UnsupportedError(mime.clone()))?;
+            self.encod_and_save(img, encoding, output)?;
+            return Ok(());
+        }
+
+        #[cfg(feature = "source")]
+        if crate::thumbs::source::is_source_ext(&ext) {
+            use crate::thumbs::source;
+            let img = source::create_thumbnail(path, max_dim)
                 .ok_or_else(|| ThumbnailError::UnsupportedError(mime.clone()))?;
             self.encod_and_save(img, encoding, output)?;
             return Ok(());

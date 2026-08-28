@@ -16,3 +16,9 @@ pub(crate) mod audio;
 
 #[cfg(feature = "office")]
 pub(crate) mod office;
+
+#[cfg(feature = "source")]
+pub(crate) mod psd_composite;
+
+#[cfg(feature = "source")]
+pub(crate) mod source;
