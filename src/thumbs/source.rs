@@ -8,11 +8,35 @@ use std::path::Path;
 
 use image::DynamicImage;
 
+use crate::PsdPreviewPolicy;
+
 /// 25 种源文件扩展名
 pub const SOURCE_EXTENSIONS: &[&str] = &[
-    "aep", "af", "afdesign", "afphoto", "afpub", "ai", "c4d", "cdr", "clip", "dwg", "graffle",
-    "idml", "indd", "indt", "mindnode", "principle", "psb", "psd", "psdt", "pxd", "sketch", "skp",
-    "skt", "xd", "xmind",
+    "aep",
+    "af",
+    "afdesign",
+    "afphoto",
+    "afpub",
+    "ai",
+    "c4d",
+    "cdr",
+    "clip",
+    "dwg",
+    "graffle",
+    "idml",
+    "indd",
+    "indt",
+    "mindnode",
+    "principle",
+    "psb",
+    "psd",
+    "psdt",
+    "pxd",
+    "sketch",
+    "skp",
+    "skt",
+    "xd",
+    "xmind",
 ];
 
 pub fn is_source_ext(ext: &str) -> bool {
@@ -24,6 +48,15 @@ const SCAN_LIMIT: usize = 16 * 1024 * 1024;
 
 /// 主入口：按扩展名分发，提取内嵌预览并缩放到 max_dim
 pub fn create_thumbnail(path: &Path, max_dim: u32) -> Option<DynamicImage> {
+    create_thumbnail_with_psd_policy(path, max_dim, PsdPreviewPolicy::PreferComposite)
+}
+
+/// 按扩展名提取源文件预览，并允许 PSD 跳过高开销 composite 解析。
+pub fn create_thumbnail_with_psd_policy(
+    path: &Path,
+    max_dim: u32,
+    psd_policy: PsdPreviewPolicy,
+) -> Option<DynamicImage> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -31,7 +64,7 @@ pub fn create_thumbnail(path: &Path, max_dim: u32) -> Option<DynamicImage> {
         .unwrap_or_default();
 
     let img = match ext.as_str() {
-        "psd" | "psb" | "psdt" => extract_psd_preview(path, max_dim),
+        "psd" | "psb" | "psdt" => extract_psd_preview(path, max_dim, psd_policy),
         "ai" => extract_ai_preview(path, max_dim),
         "sketch" | "xd" | "xmind" | "graffle" | "pxd" | "idml" => extract_zip_preview(path),
         _ => extract_embedded_jpeg(path),
@@ -66,7 +99,14 @@ const PSD_COMPOSITE_MAX_BYTES: u64 = 200 * 1024 * 1024;
 /// PSD/PSB/PSDT：优先 composite image，失败再读 IRB 1036/1033 内嵌 JPEG。
 /// IRB 内嵌缩略图上限约 160px，仅作 composite 超限/失败/文件被 PS 锁定时的回退，
 /// 应用层会对 160px 结果异步 Shell 升级。
-fn extract_psd_preview(path: &Path, max_dim: u32) -> Option<DynamicImage> {
+fn extract_psd_preview(
+    path: &Path,
+    max_dim: u32,
+    policy: PsdPreviewPolicy,
+) -> Option<DynamicImage> {
+    if policy == PsdPreviewPolicy::IrbOnly {
+        return extract_psd_irb_jpeg(path);
+    }
     // metadata 失败（文件被 PS 独占锁等）时不直接失败，仍尝试 IRB 局部读
     if let Ok(size) = std::fs::metadata(path).map(|m| m.len()) {
         if size <= PSD_COMPOSITE_MAX_BYTES {
@@ -294,9 +334,7 @@ fn find_jpeg_eoi(data: &[u8]) -> Option<usize> {
 }
 
 fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack
-        .windows(needle.len())
-        .position(|w| w == needle)
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
 
 #[cfg(test)]
@@ -371,7 +409,8 @@ mod tests {
             }
             let img = create_thumbnail(path, 512);
             assert!(
-                img.as_ref().is_some_and(|i| i.width() > 0 && i.height() > 0),
+                img.as_ref()
+                    .is_some_and(|i| i.width() > 0 && i.height() > 0),
                 "应能提取内容预览: {s}"
             );
         }
@@ -425,14 +464,11 @@ mod tests {
         buf.extend_from_slice(&(resources.len() as u32).to_be_bytes()); // image resources len
         buf.extend_from_slice(&resources);
 
-        let path = std::env::temp_dir().join(format!(
-            "cherry_psd_test_{}.psd",
-            std::process::id()
-        ));
+        let path = std::env::temp_dir().join(format!("cherry_psd_test_{}.psd", std::process::id()));
         std::fs::write(&path, &buf).expect("write temp psd");
-        let result = create_thumbnail(&path, 512);
+        let result = create_thumbnail_with_psd_policy(&path, 512, PsdPreviewPolicy::IrbOnly);
         let _ = std::fs::remove_file(&path);
-        assert!(result.is_some(), "PSD IRB 1036 应能提取 JPEG 预览");
+        assert!(result.is_some(), "IrbOnly 应能提取 PSD IRB 1036 预览");
         let img = result.unwrap();
         assert!(img.width() > 0 && img.height() > 0);
     }
@@ -440,8 +476,8 @@ mod tests {
     /// 含 composite Image Data 的 PSD：应优先读出完整拼合图而非 160px IRB
     #[test]
     fn psd_fixture_composite_image() {
-        use ag_psd::{read_psd, write_psd};
         use ag_psd::psd::{ColorMode, PixelData, Psd, ReadOptions, WriteOptions};
+        use ag_psd::{read_psd, write_psd};
 
         let w = 300u32;
         let h = 200u32;
@@ -477,12 +513,17 @@ mod tests {
         ));
         std::fs::write(&path, &bytes).expect("write temp psd");
         let result = create_thumbnail(&path, 512);
+        let irb_only = create_thumbnail_with_psd_policy(&path, 512, PsdPreviewPolicy::IrbOnly);
         let _ = std::fs::remove_file(&path);
 
         let img = result.expect("composite PSD 应能提取预览");
         assert_eq!(img.width(), 300, "应保留 composite 原始宽度");
         assert_eq!(img.height(), 200);
         assert!(img.width() > 160, "应大于 IRB 160px 上限");
+        assert!(
+            irb_only.is_none(),
+            "IrbOnly 不应把缺少 IRB 的 composite 当作快速预览"
+        );
     }
 
     /// 真实 PSD 样本：至少一个应通过 composite 得到远超 160px 的预览
@@ -508,10 +549,7 @@ mod tests {
             if icon_max > 200 {
                 high_res += 1;
             }
-            assert!(
-                preview_max >= icon_max,
-                "Preview 档不应小于 Icon 档: {s}"
-            );
+            assert!(preview_max >= icon_max, "Preview 档不应小于 Icon 档: {s}");
             eprintln!(
                 "{s}: icon={}x{} (max={icon_max}), preview={}x{} (max={preview_max})",
                 icon.width(),

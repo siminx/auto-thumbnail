@@ -4,7 +4,7 @@ mod mime_resolve;
 mod thumbs;
 pub mod types;
 
-pub use decode::{decode_and_thumbnail, decode_image, DecodeError};
+pub use decode::{DecodeError, decode_and_thumbnail, decode_image};
 pub use frame_valid::{is_effectively_blank, is_rgba_blank};
 
 use std::{fs::File, path::Path, str::FromStr};
@@ -34,6 +34,16 @@ pub enum Encoding {
     Webp,
 }
 
+/// PSD 预览提取策略；调用方可在准确性和扫描开销之间显式取舍。
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PsdPreviewPolicy {
+    /// 优先解析完整 composite，失败或超限时再回退到 IRB。
+    #[default]
+    PreferComposite,
+    /// 只读取约 160px 的内嵌 IRB，避免为扫描主色完整加载大文件。
+    IrbOnly,
+}
+
 /// Represents fixed sizes of a thumbnail
 #[derive(Clone, Copy, Debug)]
 pub enum ThumbnailSize {
@@ -60,6 +70,17 @@ impl ThumbnailSize {
 
 /// 按 MIME/扩展名路由解码并缩放到 max_dim 边长内（svg/raw/audio/office 优先于通用 image）
 pub fn decode_for_thumbnail(path: &Path, max_dim: u32) -> Result<DynamicImage, DecodeError> {
+    decode_for_thumbnail_with_psd_policy(path, max_dim, PsdPreviewPolicy::PreferComposite)
+}
+
+/// 按 MIME/扩展名路由解码，并允许 PSD 调用方选择是否解析完整 composite。
+///
+/// 非 PSD 格式会忽略 `psd_policy`，从而保持统一入口而不改变既有路由行为。
+pub fn decode_for_thumbnail_with_psd_policy(
+    path: &Path,
+    max_dim: u32,
+    psd_policy: PsdPreviewPolicy,
+) -> Result<DynamicImage, DecodeError> {
     let mime = mime_resolve::resolve_mime(path);
     let ext = path
         .extension()
@@ -94,7 +115,8 @@ pub fn decode_for_thumbnail(path: &Path, max_dim: u32) -> Result<DynamicImage, D
     #[cfg(feature = "source")]
     if crate::thumbs::source::is_source_ext(&ext) {
         use crate::thumbs::source;
-        return source::create_thumbnail(path, max_dim).ok_or(DecodeError::Unsupported);
+        return source::create_thumbnail_with_psd_policy(path, max_dim, psd_policy)
+            .ok_or(DecodeError::Unsupported);
     }
 
     decode_and_thumbnail(path, max_dim)
@@ -264,11 +286,7 @@ impl Thumbnailer {
             }
             Encoding::Webp => {
                 let rgba = img.to_rgba8();
-                let encoder = webp::Encoder::from_rgba(
-                    rgba.as_raw(),
-                    rgba.width(),
-                    rgba.height(),
-                );
+                let encoder = webp::Encoder::from_rgba(rgba.as_raw(), rgba.width(), rgba.height());
                 let memory = encoder.encode(self.quality.into());
                 std::fs::write(output, &*memory)?;
             }
