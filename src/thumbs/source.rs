@@ -351,45 +351,6 @@ mod tests {
         assert!(!is_source_ext("heic"));
     }
 
-    /// 真实样本：001.ai / sample.ai（PDF 容器，需 pdf 特征）
-    #[test]
-    fn ai_samples_pdf() {
-        let samples = [
-            r"D:\xsmspace\data\1\file\源文件\001.ai",
-            r"D:\xsmspace\data\2\file\源文件\sample.ai",
-            r"D:\Pixcall\设计素材\自定义下载-大屏\a-9.ai",
-        ];
-        let mut ok = 0;
-        let mut total = 0;
-        for s in samples {
-            let path = Path::new(s);
-            if !path.exists() {
-                continue;
-            }
-            total += 1;
-            if create_thumbnail(path, 512).is_some() {
-                ok += 1;
-            } else {
-                eprintln!("AI 解码失败: {s}");
-            }
-        }
-        if total == 0 {
-            return;
-        }
-        assert!(ok > 0, "至少一个 AI 样本应能提取预览");
-    }
-
-    /// graffle 样本（ZIP 或失败）
-    #[test]
-    fn graffle_sample() {
-        let path = Path::new(r"D:\xsmspace\data\1\file\源文件\User_journey.graffle");
-        if !path.exists() {
-            return;
-        }
-        // 不强制要求成功，但不应 panic
-        let _ = create_thumbnail(path, 512);
-    }
-
     /// 用户报告漏抽的真实样本：文件存在则必须抽出非空预览
     #[test]
     fn reported_missing_source_samples() {

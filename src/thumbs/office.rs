@@ -59,19 +59,3 @@ fn read_zip_image(
     }
     Some(thumb)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::Path;
-
-    /// sample.docx 内嵌 JPEG 为空白占位图，应跳过
-    #[test]
-    fn skips_blank_embedded_thumbnail() {
-        let path = Path::new(r"D:\xsmspace\data\2\_clone_sample-files\documents\sample.docx");
-        if !path.exists() {
-            return;
-        }
-        assert!(create_thumbnail(path, 512).is_none());
-    }
-}

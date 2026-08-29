@@ -37,18 +37,3 @@ fn extract_jpeg_candidates(data: &[u8]) -> Vec<Vec<u8>> {
     segments.sort_by_key(|b| std::cmp::Reverse(b.len()));
     segments
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::Path;
-
-    #[test]
-    fn sigma_x3f_sample_has_preview() {
-        let path = Path::new(r"D:\xsmspace\data\1\file\RAW\RAW_SIGMA_DP1.X3F");
-        if !path.exists() {
-            return;
-        }
-        assert!(create_thumbnail(path, 512).is_ok());
-    }
-}

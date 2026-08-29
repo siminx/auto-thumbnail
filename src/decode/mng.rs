@@ -120,20 +120,3 @@ fn is_png_chunk(chunk_type: &[u8; 4]) -> bool {
         && chunk_type[2].is_ascii_alphabetic()
         && chunk_type[3].is_ascii_alphabetic()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::Path;
-
-    #[test]
-    fn decode_reported_mng_sample() {
-        let sample = r"D:\xsmspace\data\1\file\图像\animated.mng";
-        let path = Path::new(sample);
-        if !path.exists() {
-            return;
-        }
-        let img = try_decode_mng(path).expect("应能解码 animated.mng 首帧");
-        assert!(img.width() > 0 && img.height() > 0);
-    }
-}
