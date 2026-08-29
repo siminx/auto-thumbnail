@@ -34,6 +34,11 @@ pub fn try_decode_reader(path: &Path) -> Option<DynamicImage> {
             return Some(img);
         }
     }
+    // image crate 的 BMP 解码器无条件信任文件头 bfOffBits，部分工具写出的
+    // BMP 该字段是垃圾值导致读像素 EOF；标准解码全部失败后尝试修正偏移再解
+    if let Some(img) = super::bmp::try_decode_bmp_repaired(path) {
+        return Some(apply_tone_map_if_needed(img));
+    }
     None
 }
 

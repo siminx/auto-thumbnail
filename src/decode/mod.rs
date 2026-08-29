@@ -2,6 +2,7 @@
 //!
 //! 不含平台 Shell/GDI；应用层（cherry-box）负责最终兜底。
 
+mod bmp;
 pub(crate) mod ffmpeg_decode;
 mod ffmpeg_image;
 pub(crate) mod ffmpeg_log;
