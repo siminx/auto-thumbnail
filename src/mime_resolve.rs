@@ -76,7 +76,8 @@ fn mime_from_extension(path: &Path) -> Option<&'static str> {
     }
 }
 
-fn is_video_ext(ext: &str) -> bool {
+/// 判定扩展名是否为视频容器（元数据探测与解码分支共用）
+pub(crate) fn is_video_ext(ext: &str) -> bool {
     matches!(
         ext,
         "3g2" | "3gp" | "avi" | "f4v" | "flv" | "m2ts" | "m4v" | "mkv" | "mov" | "mp4" | "mpeg"

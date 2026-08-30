@@ -99,6 +99,46 @@ pub fn probe_duration_secs(path: &Path, probe: HashMap<String, String>) -> Optio
     Some(duration as f64 / ffmpeg::ffi::AV_TIME_BASE as f64)
 }
 
+/// 探测视频宽高与时长：一次容器打开同时取两者，避免探测方打开两次。
+/// 宽高直接从解码器参数读（不实际解码帧），无视频流或尺寸无效时为 None。
+#[cfg(feature = "video")]
+pub fn probe_video_meta(
+    path: &Path,
+    probe: HashMap<String, String>,
+) -> (Option<(u32, u32)>, Option<f64>) {
+    use ffmpeg::Dictionary;
+    use ffmpeg::format::input_with_dictionary;
+    use ffmpeg::media::Type;
+    use ffmpeg_next as ffmpeg;
+
+    ffmpeg_log::init_ffmpeg_logging();
+    if ffmpeg::init().is_err() {
+        return (None, None);
+    }
+    let dict: Dictionary = probe.into_iter().collect();
+    let Ok(ictx) = input_with_dictionary(path, dict) else {
+        return (None, None);
+    };
+
+    let duration_secs = {
+        let duration = ictx.duration();
+        (duration > 0).then(|| duration as f64 / ffmpeg::ffi::AV_TIME_BASE as f64)
+    };
+    let dimensions = ictx
+        .streams()
+        .best(Type::Video)
+        .and_then(|stream| {
+            ffmpeg::codec::context::Context::from_parameters(stream.parameters())
+                .ok()?
+                .decoder()
+                .video()
+                .ok()
+                .map(|decoder| (decoder.width(), decoder.height()))
+        })
+        .filter(|(w, h)| *w > 0 && *h > 0);
+    (dimensions, duration_secs)
+}
+
 /// SWF：ffmpeg-next 只取首帧并 swscale 到 RGB24
 #[cfg(feature = "video")]
 pub fn decode_swf_first_frame(path: &Path) -> Option<DynamicImage> {

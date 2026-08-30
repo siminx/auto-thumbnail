@@ -1,4 +1,4 @@
-//! PDF 首页渲染。pdfium-render 的 BINDINGS 只能 set 一次，且 FFI 非线程安全，
+//! PDF 首页渲染与页面尺寸探测。pdfium-render 的 BINDINGS 只能 set 一次，且 FFI 非线程安全，
 //! 必须单次绑定 + 全局互斥，避免并发 bind 断言 panic / 堆损坏。
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -22,6 +22,25 @@ where
     P: AsRef<Path>,
 {
     let path = path.as_ref().to_path_buf();
+    with_pdfium(|pdfium| render_first_page(pdfium, &path, width, height))
+        .ok_or_else(|| anyhow::anyhow!("pdfium 渲染失败（库绑定失败或渲染出错/panic）"))
+}
+
+/// 探测 PDF 首页页面尺寸（pt 取整）；供 AI 等可被 pdfium 解析的封装格式读取画板尺寸
+pub(crate) fn probe_page_size(path: &Path) -> Option<(u32, u32)> {
+    with_pdfium(|pdfium| {
+        let document = pdfium.load_pdf_from_file(path, None)?;
+        let first_page = document.pages().first()?;
+        // PdfPoints 的 value 字段为 f32（单位 pt），取整后作为像素展示值
+        let width = first_page.width().value.round() as u32;
+        let height = first_page.height().value.round() as u32;
+        Ok((width, height))
+    })
+}
+
+/// 确保绑定（进程内一次）后在锁内执行任务；pdfium FFI 非线程安全，所有调用必须串行。
+/// 任务返回 Err 或发生 panic 统一归为 None，调用方按"不可解析"处理即可
+fn with_pdfium<T>(task: impl FnOnce(&Pdfium) -> anyhow::Result<T>) -> Option<T> {
     let mut state = PDFIUM_LOCK
         .lock()
         .unwrap_or_else(|e| e.into_inner());
@@ -34,12 +53,16 @@ where
         };
     }
     if matches!(*state, PdfiumBindState::Failed) {
-        anyhow::bail!("pdfium 库绑定失败");
+        return None;
     }
 
-    // 渲染也在锁内：pdfium FFI 非线程安全
-    catch_unwind(AssertUnwindSafe(|| render_first_page(&path, width, height)))
-        .map_err(|_| anyhow::anyhow!("pdfium 渲染 panic"))?
+    // 任务也在锁内：pdfium FFI 非线程安全
+    catch_unwind(AssertUnwindSafe(|| {
+        let pdfium = Pdfium::default();
+        task(&pdfium).ok()
+    }))
+    .ok()
+    .flatten()
 }
 
 /// 进程内只尝试绑定一次；已初始化时 BINDINGS.set 会断言，需 catch 后复用 default
@@ -59,8 +82,12 @@ fn bind_once() -> bool {
     }
 }
 
-fn render_first_page(path: &Path, width: u32, height: u32) -> anyhow::Result<DynamicImage> {
-    let pdfium = Pdfium::default();
+fn render_first_page(
+    pdfium: &Pdfium,
+    path: &Path,
+    width: u32,
+    height: u32,
+) -> anyhow::Result<DynamicImage> {
     let document = pdfium.load_pdf_from_file(path, None)?;
     let render_config = PdfRenderConfig::new();
     let first_page = document.pages().first()?;

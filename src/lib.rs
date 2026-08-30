@@ -1,11 +1,13 @@
 mod decode;
 pub mod frame_valid;
+mod meta;
 mod mime_resolve;
 mod thumbs;
 pub mod types;
 
 pub use decode::{DecodeError, decode_and_thumbnail, decode_image};
 pub use frame_valid::{is_effectively_blank, is_rgba_blank};
+pub use meta::{MediaMeta, probe_media_meta};
 
 use std::{fs::File, path::Path, str::FromStr};
 
